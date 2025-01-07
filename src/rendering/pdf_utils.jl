@@ -148,6 +148,15 @@ function crop_pdf(path::String; margin = _PDFCROP_DEFAULT_MARGINS[])
     #     @warn("The PDF has more than 1 page!  Choosing the first page.")
     # end
 
+    # Check for a `gs` command in the shell
+    has_shell_gs = try
+        run(pipeline(`which gs`, stdout=devnull, stderr=devnull))
+        true
+    catch e
+        @warn "Failed to find 'gs' in shell path. Defaulting to use Ghostscript_jll. If this fails, please include Ghostscript command `gs` in current shell." exception=(e, catch_backtrace())
+        false
+    end
+
     # Generate the cropping margins
     bbox = get_pdf_bbox(path)
     crop_box = (
@@ -164,8 +173,15 @@ function crop_pdf(path::String; margin = _PDFCROP_DEFAULT_MARGINS[])
     try
         redirect_stderr(err) do
             redirect_stdout(out) do
-                Ghostscript_jll.gs() do gs_exe
-                    run(`$gs_exe -o temp_cropped.pdf -sDEVICE=pdfwrite -c "[/CropBox [$crop_cmd]" -c "/PAGES pdfmark" -f $path`)
+                base_command = `-o temp_cropped.pdf -sDEVICE=pdfwrite -c "[/CropBox [$crop_cmd]" -c "/PAGES pdfmark" -f $path`
+                if has_shell_gs
+                    # Use the `gs` command from the shell
+                    run(`gs $base_command`)
+                else
+                    # Use Ghostscript_jll.gs() as a fallback
+                    Ghostscript_jll.gs() do gs_exe
+                        run(`$gs_exe $base_command`)
+                    end
                 end
             end
         end
