@@ -5,22 +5,13 @@ This file contains a common core for working with PDFs.  It does not contain any
 but functions from here are used in the PDF and TeX rendering pipelines.
 =#
 
-# Check for the existence of the `gs` command in the shell
-has_shell_gs = try
-    run(pipeline(`which gs`, stdout=devnull, stderr=devnull))
-    true
-catch e
-    @warn "Failed to find 'gs' in shell path. Defaulting to use Ghostscript_jll. If this fails, please include Ghostscript command `gs` in current shell." exception=(e, catch_backtrace())
-    false
-end
-
 """
     ghostscript_gs(command_string::String)
 
 Run a Ghostscript command string.  If the `gs` command is available in the shell, it will be used.  Otherwise, the Ghostscript executable from the `Ghostscript_jll` package will be used.
 """
 function ghostscript_gs(command_string::Cmd)
-    if has_shell_gs
+    if GHOSTSCRIPT_AVAILABLE
         return `gs $command_string`
     else
         return `$(Ghostscript_jll.gs()) $command_string`
